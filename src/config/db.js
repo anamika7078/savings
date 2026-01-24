@@ -1,13 +1,9 @@
 const { Sequelize } = require('sequelize');
 require('dotenv').config();
 
-const sequelize = new Sequelize(
-  process.env.DB_NAME || 'community_finance',
-  process.env.DB_USER || 'root',
-  process.env.DB_PASSWORD || 'password',
-  {
-    host: process.env.DB_HOST || 'localhost',
-    port: process.env.DB_PORT || 3306,
+// Use DATABASE_URL if available (Railway), otherwise use individual variables
+const sequelize = process.env.DATABASE_URL
+  ? new Sequelize(process.env.DATABASE_URL, {
     dialect: 'mysql',
     logging: process.env.NODE_ENV === 'development' ? console.log : false,
     pool: {
@@ -16,7 +12,23 @@ const sequelize = new Sequelize(
       acquire: 30000,
       idle: 10000
     }
-  }
-);
+  })
+  : new Sequelize(
+    process.env.DB_NAME || 'community_finance',
+    process.env.DB_USER || 'root',
+    process.env.DB_PASSWORD || 'password',
+    {
+      host: process.env.DB_HOST || 'localhost',
+      port: process.env.DB_PORT || 3306,
+      dialect: 'mysql',
+      logging: process.env.NODE_ENV === 'development' ? console.log : false,
+      pool: {
+        max: 10,
+        min: 0,
+        acquire: 30000,
+        idle: 10000
+      }
+    }
+  );
 
 module.exports = sequelize;
