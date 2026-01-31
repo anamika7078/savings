@@ -31,6 +31,23 @@ app.use(express.urlencoded({ extended: true }));
 
 /* ---------- Routes ---------- */
 
+app.get('/', (req, res) => {
+    res.json({
+        message: 'Community Finance API',
+        version: '1.0.0',
+        endpoints: {
+            health: '/health',
+            auth: '/api/auth',
+            members: '/api/members',
+            savings: '/api/savings',
+            loans: '/api/loans',
+            fines: '/api/fines',
+            repayments: '/api/repayments',
+            reports: '/api/reports'
+        }
+    });
+});
+
 app.get('/health', (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
