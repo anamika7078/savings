@@ -9,6 +9,8 @@ const logger = require('./src/config/logger');
 
 const app = express();
 
+/* ---------- Middleware ---------- */
+
 const limiter = rateLimit({
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
     max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
@@ -27,10 +29,7 @@ app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-app.use((req, res, next) => {
-    logger.info(`${req.method} ${req.url}`, { ip: req.ip });
-    next();
-});
+/* ---------- Routes ---------- */
 
 app.get('/health', (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
@@ -44,41 +43,27 @@ app.use('/api/fines', require('./src/routes/fine.routes'));
 app.use('/api/repayments', require('./src/routes/repayment.routes'));
 app.use('/api/reports', require('./src/routes/report.routes'));
 
+/* ---------- Error handling ---------- */
+
 app.use((err, req, res, next) => {
     logger.error(err.stack);
     res.status(err.status || 500).json({
         success: false,
-        message: err.message || 'Internal Server Error',
-        ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+        message: err.message || 'Internal Server Error'
     });
 });
 
-app.use('*', (req, res) => {
-    res.status(404).json({
-        success: false,
-        message: 'Route not found'
-    });
-});
+/* ---------- Start server FIRST ---------- */
 
 const PORT = process.env.PORT || 5000;
 
-const startServer = async () => {
-    try {
-        await sequelize.authenticate();
-        logger.info('Database connection established successfully');
+app.listen(PORT, () => {
+    logger.info(`Server running on port ${PORT}`);
 
-        // await sequelize.sync({ alter: true });
-        logger.info('Database synchronized');
-
-        app.listen(PORT, () => {
-            logger.info(`Server running on port ${PORT}`);
-        });
-    } catch (error) {
-        logger.error('Failed to start server:', error);
-        process.exit(1);
-    }
-};
-
-startServer();
+    // connect DB AFTER server is live
+    sequelize.authenticate()
+        .then(() => logger.info('Database connected'))
+        .catch(err => logger.error('Database connection failed', err));
+});
 
 module.exports = app;
