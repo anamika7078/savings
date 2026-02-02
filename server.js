@@ -31,11 +31,14 @@ const corsOptions = {
             'http://localhost:3000',
             'http://localhost:3001'
         ];
-        
+
+        // Clean trailing slash from env var if present
+        const envOrigin = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.replace(/\/$/, '') : null;
+
         // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
-        
-        if (allowedOrigins.indexOf(origin) !== -1 || process.env.CORS_ORIGIN === origin) {
+
+        if (allowedOrigins.indexOf(origin) !== -1 || envOrigin === origin) {
             callback(null, true);
         } else {
             callback(new Error('Not allowed by CORS'));
