@@ -91,11 +91,17 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', require('./src/routes/auth.routes'));
 app.use('/auth', require('./src/routes/auth.routes'));
 app.use('/api/members', require('./src/routes/member.routes'));
+app.use('/members', require('./src/routes/member.routes'));
 app.use('/api/savings', require('./src/routes/savings.routes'));
+app.use('/savings', require('./src/routes/savings.routes'));
 app.use('/api/loans', require('./src/routes/loan.routes'));
+app.use('/loans', require('./src/routes/loan.routes'));
 app.use('/api/fines', require('./src/routes/fine.routes'));
+app.use('/fines', require('./src/routes/fine.routes'));
 app.use('/api/repayments', require('./src/routes/repayment.routes'));
+app.use('/repayments', require('./src/routes/repayment.routes'));
 app.use('/api/reports', require('./src/routes/report.routes'));
+app.use('/reports', require('./src/routes/report.routes'));
 
 /* ---------- Error handling ---------- */
 
