@@ -89,6 +89,7 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/api/auth', require('./src/routes/auth.routes'));
+app.use('/auth', require('./src/routes/auth.routes'));
 app.use('/api/members', require('./src/routes/member.routes'));
 app.use('/api/savings', require('./src/routes/savings.routes'));
 app.use('/api/loans', require('./src/routes/loan.routes'));
