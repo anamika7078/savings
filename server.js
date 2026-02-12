@@ -31,6 +31,7 @@ const corsOptions = {
     origin: function (origin, callback) {
         const allowedOrigins = [
             'https://savingclient.vercel.app',
+            'https://savingnew-five.vercel.app',
             'http://localhost:3000',
             'http://localhost:3001'
         ];
