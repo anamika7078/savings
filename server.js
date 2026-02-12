@@ -32,6 +32,7 @@ const corsOptions = {
         const allowedOrigins = [
             'https://savingclient.vercel.app',
             'https://savingnew-five.vercel.app',
+            'https://savingfrontendnew.vercel.app',
             'http://localhost:3000',
             'http://localhost:3001'
         ];
