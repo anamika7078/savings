@@ -4,10 +4,13 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
-const sequelize = require('./src/config/db');
+const connectDB = require('./src/config/db');
 const logger = require('./src/config/logger');
 
 const app = express();
+
+// Connect to Database
+connectDB();
 
 /* ---------- Middleware ---------- */
 
@@ -107,11 +110,6 @@ const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
     logger.info(`Server running on port ${PORT}`);
-
-    // connect DB AFTER server is live
-    sequelize.authenticate()
-        .then(() => logger.info('Database connected'))
-        .catch(err => logger.error('Database connection failed', err));
 });
 
 module.exports = app;

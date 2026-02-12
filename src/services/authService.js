@@ -5,7 +5,7 @@ const logger = require('../config/logger');
 class AuthService {
     generateToken(user) {
         return jwt.sign(
-            { id: user.id, username: user.username, role: user.role },
+            { id: user._id, username: user.username, role: user.role },
             process.env.JWT_SECRET,
             { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
         );
@@ -13,7 +13,7 @@ class AuthService {
 
     async login(username, password) {
         try {
-            const user = await User.findOne({ where: { username } });
+            const user = await User.findOne({ username });
 
             if (!user) {
                 throw new Error('Invalid credentials');
@@ -29,7 +29,8 @@ class AuthService {
                 throw new Error('Invalid credentials');
             }
 
-            await user.update({ lastLogin: new Date() });
+            user.lastLogin = new Date();
+            await user.save();
 
             const token = this.generateToken(user);
 
@@ -48,12 +49,10 @@ class AuthService {
     async register(userData) {
         try {
             const existingUser = await User.findOne({
-                where: {
-                    [User.sequelize.Sequelize.Op.or]: [
-                        { username: userData.username },
-                        { email: userData.email }
-                    ]
-                }
+                $or: [
+                    { username: userData.username },
+                    { email: userData.email }
+                ]
             });
 
             if (existingUser) {
@@ -83,7 +82,7 @@ class AuthService {
 
     async getCurrentUser(userId) {
         try {
-            const user = await User.findByPk(userId);
+            const user = await User.findById(userId);
 
             if (!user) {
                 throw new Error('User not found');
@@ -98,23 +97,22 @@ class AuthService {
 
     async updateProfile(userId, updateData) {
         try {
-            const user = await User.findByPk(userId);
+            const user = await User.findById(userId);
 
             if (!user) {
                 throw new Error('User not found');
             }
 
             if (updateData.email && updateData.email !== user.email) {
-                const existingUser = await User.findOne({
-                    where: { email: updateData.email }
-                });
+                const existingUser = await User.findOne({ email: updateData.email });
 
                 if (existingUser) {
                     throw new Error('Email already exists');
                 }
             }
 
-            await user.update(updateData);
+            Object.assign(user, updateData);
+            await user.save();
 
             logger.info(`User profile updated: ${user.username}`);
 
@@ -127,7 +125,7 @@ class AuthService {
 
     async changePassword(userId, currentPassword, newPassword) {
         try {
-            const user = await User.findByPk(userId);
+            const user = await User.findById(userId);
 
             if (!user) {
                 throw new Error('User not found');
@@ -139,7 +137,8 @@ class AuthService {
                 throw new Error('Current password is incorrect');
             }
 
-            await user.update({ password: newPassword });
+            user.password = newPassword;
+            await user.save();
 
             logger.info(`Password changed for user: ${user.username}`);
 

@@ -1,65 +1,52 @@
 const { Repayment, Loan, Member } = require('../models');
-const { sequelize } = require('../models');
+const mongoose = require('mongoose');
 const logger = require('../config/logger');
 const moment = require('moment');
 
 class RepaymentService {
     async getAllRepayments(page = 1, limit = 10, filters = {}) {
         try {
-            const where = {};
+            const skip = (page - 1) * limit;
+            const query = {};
 
             if (filters.status) {
-                where.status = filters.status;
+                query.status = filters.status;
             }
 
             if (filters.memberId) {
-                where.memberId = filters.memberId;
+                query.memberId = filters.memberId;
             }
 
             if (filters.loanId) {
-                where.loanId = filters.loanId;
+                query.loanId = filters.loanId;
             }
 
             if (filters.startDate && filters.endDate) {
-                where.dueDate = {
-                    [sequelize.Sequelize.Op.between]: [filters.startDate, filters.endDate]
+                query.dueDate = {
+                    $gte: new Date(filters.startDate),
+                    $lte: new Date(filters.endDate)
                 };
             }
 
-            const offset = (page - 1) * limit;
+            const repayments = await Repayment.find(query)
+                .populate({
+                    path: 'loanId',
+                    populate: { path: 'member', select: 'memberId firstName lastName' }
+                })
+                .populate({ path: 'memberId', select: 'memberId firstName lastName' })
+                .sort({ dueDate: -1 })
+                .skip(skip)
+                .limit(limit);
 
-            const { count, rows: repayments } = await Repayment.findAndCountAll({
-                where,
-                include: [
-                    {
-                        model: Loan,
-                        as: 'loan',
-                        include: [
-                            {
-                                model: Member,
-                                as: 'member',
-                                attributes: ['id', 'firstName', 'lastName', 'memberId']
-                            }
-                        ]
-                    },
-                    {
-                        model: Member,
-                        as: 'member',
-                        attributes: ['id', 'firstName', 'lastName', 'memberId']
-                    }
-                ],
-                order: [['dueDate', 'DESC']],
-                limit,
-                offset
-            });
+            const total = await Repayment.countDocuments(query);
 
             return {
                 repayments,
                 pagination: {
                     page,
                     limit,
-                    total: count,
-                    totalPages: Math.ceil(count / limit)
+                    total,
+                    totalPages: Math.ceil(total / limit)
                 }
             };
         } catch (error) {
@@ -70,26 +57,12 @@ class RepaymentService {
 
     async getRepaymentById(id) {
         try {
-            const repayment = await Repayment.findByPk(id, {
-                include: [
-                    {
-                        model: Loan,
-                        as: 'loan',
-                        include: [
-                            {
-                                model: Member,
-                                as: 'member',
-                                attributes: ['id', 'firstName', 'lastName', 'memberId']
-                            }
-                        ]
-                    },
-                    {
-                        model: Member,
-                        as: 'member',
-                        attributes: ['id', 'firstName', 'lastName', 'memberId']
-                    }
-                ]
-            });
+            const repayment = await Repayment.findById(id)
+                .populate({
+                    path: 'loanId',
+                    populate: { path: 'member', select: 'memberId firstName lastName' }
+                })
+                .populate({ path: 'memberId', select: 'memberId firstName lastName' });
 
             if (!repayment) {
                 throw new Error('Repayment not found');
@@ -103,18 +76,8 @@ class RepaymentService {
     }
 
     async makeRepayment(id, paymentData) {
-        const transaction = await sequelize.transaction();
-
         try {
-            const repayment = await Repayment.findByPk(id, {
-                include: [
-                    {
-                        model: Loan,
-                        as: 'loan'
-                    }
-                ],
-                transaction
-            });
+            const repayment = await Repayment.findById(id).populate('loanId');
 
             if (!repayment) {
                 throw new Error('Repayment not found');
@@ -124,31 +87,36 @@ class RepaymentService {
                 throw new Error('Repayment is already paid');
             }
 
-            // Update repayment
-            await repayment.update({
-                status: 'paid',
-                paymentDate: moment().format('YYYY-MM-DD'),
-                paymentMethod: paymentData.paymentMethod,
-                transactionId: paymentData.transactionId,
-                remarks: paymentData.remarks
-            }, { transaction });
+            repayment.status = 'paid';
+            repayment.paymentDate = new Date();
+            repayment.paymentMethod = paymentData.paymentMethod;
+            repayment.transactionId = paymentData.transactionId;
+            repayment.remarks = paymentData.remarks;
+            await repayment.save();
 
-            // Update loan remaining amount
-            const loan = repayment.loan;
-            const newRemainingAmount = parseFloat(loan.remainingAmount) - parseFloat(repayment.amount);
+            let loan = repayment.loanId;
+            if (!loan && repayment.loanId) {
+                // loanId is populated but if it was just an ID string (unlikely given populate)
+                // Just in case populate failed or model definition issue
+                if (mongoose.isValidObjectId(repayment.loanId)) {
+                    loan = await Loan.findById(repayment.loanId);
+                }
+            }
 
-            await loan.update({
-                remainingAmount: newRemainingAmount,
-                status: newRemainingAmount <= 0 ? 'completed' : loan.status
-            }, { transaction });
+            if (loan) {
+                // Assuming 'remainingPrincipal' field from LoanService rewrite
+                const newRemainingPrincipal = (loan.remainingPrincipal || 0) - repayment.principalAmount;
+                loan.remainingPrincipal = newRemainingPrincipal;
+                if (newRemainingPrincipal <= 0) {
+                    loan.status = 'completed';
+                }
+                await loan.save();
+            }
 
-            await transaction.commit();
-
-            logger.info(`Repayment made: ${id} for loan: ${loan.id}`);
+            logger.info(`Repayment made: ${id} for loan: ${loan?._id}`);
 
             return await this.getRepaymentById(id);
         } catch (error) {
-            await transaction.rollback();
             logger.error('Make repayment error:', error);
             throw error;
         }
@@ -156,33 +124,18 @@ class RepaymentService {
 
     async getOverdueRepayments() {
         try {
-            const overdueRepayments = await Repayment.findAll({
-                where: {
-                    status: 'pending',
-                    dueDate: {
-                        [sequelize.Sequelize.Op.lt]: moment().startOf('day').toDate()
-                    }
-                },
-                include: [
-                    {
-                        model: Loan,
-                        as: 'loan',
-                        include: [
-                            {
-                                model: Member,
-                                as: 'member',
-                                attributes: ['id', 'firstName', 'lastName', 'memberId']
-                            }
-                        ]
-                    },
-                    {
-                        model: Member,
-                        as: 'member',
-                        attributes: ['id', 'firstName', 'lastName', 'memberId']
-                    }
-                ],
-                order: [['dueDate', 'ASC']]
-            });
+            const startOfDay = moment().startOf('day').toDate();
+
+            const overdueRepayments = await Repayment.find({
+                status: 'pending',
+                dueDate: { $lt: startOfDay }
+            })
+                .populate({
+                    path: 'loanId',
+                    populate: { path: 'member', select: 'memberId firstName lastName' }
+                })
+                .populate({ path: 'memberId', select: 'memberId firstName lastName' })
+                .sort({ dueDate: 1 });
 
             return overdueRepayments;
         } catch (error) {
@@ -193,50 +146,53 @@ class RepaymentService {
 
     async getRepaymentStatistics() {
         try {
-            const total = await Repayment.count();
-            const paid = await Repayment.count({ where: { status: 'paid' } });
-            const pending = await Repayment.count({ where: { status: 'pending' } });
-            const overdue = await Repayment.count({
-                where: {
-                    status: 'pending',
-                    dueDate: {
-                        [sequelize.Sequelize.Op.lt]: moment().startOf('day').toDate()
-                    }
-                }
+            const total = await Repayment.countDocuments();
+            const paid = await Repayment.countDocuments({ status: 'paid' });
+            const pending = await Repayment.countDocuments({ status: 'pending' });
+            const overdue = await Repayment.countDocuments({
+                status: 'pending',
+                dueDate: { $lt: moment().startOf('day').toDate() }
             });
 
-            const totalAmount = await Repayment.sum('amount');
-            const paidAmount = await Repayment.sum('amount', {
-                where: { status: 'paid' }
-            });
-            const pendingAmount = await Repayment.sum('amount', {
-                where: { status: 'pending' }
-            });
+            const aggregateSum = async (match, field) => {
+                const res = await Repayment.aggregate([
+                    { $match: match },
+                    { $group: { _id: null, total: { $sum: `$${field}` } } }
+                ]);
+                return res.length ? res[0].total : 0;
+            };
 
-            const thisMonth = await Repayment.findAll({
-                where: {
-                    paymentDate: {
-                        [sequelize.Sequelize.Op.gte]: moment().startOf('month').toDate()
+            const totalAmount = await aggregateSum({}, 'amount');
+            const paidAmount = await aggregateSum({ status: 'paid' }, 'amount');
+            const pendingAmount = await aggregateSum({ status: 'pending' }, 'amount');
+
+            const startOfMonth = moment().startOf('month').toDate();
+            const thisMonthStats = await Repayment.aggregate([
+                {
+                    $match: {
+                        paymentDate: { $gte: startOfMonth }
                     }
                 },
-                attributes: [
-                    [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-                    [sequelize.fn('SUM', sequelize.col('amount')), 'total']
-                ],
-                raw: true
-            });
+                {
+                    $group: {
+                        _id: null,
+                        count: { $sum: 1 },
+                        total: { $sum: '$amount' }
+                    }
+                }
+            ]);
 
             return {
                 total,
                 paid,
                 pending,
                 overdue,
-                totalAmount: totalAmount || 0,
-                paidAmount: paidAmount || 0,
-                pendingAmount: pendingAmount || 0,
+                totalAmount,
+                paidAmount,
+                pendingAmount,
                 thisMonth: {
-                    count: thisMonth[0]?.count || 0,
-                    total: thisMonth[0]?.total || 0
+                    count: thisMonthStats.length ? thisMonthStats[0].count : 0,
+                    total: thisMonthStats.length ? thisMonthStats[0].total : 0
                 }
             };
         } catch (error) {
@@ -247,37 +203,38 @@ class RepaymentService {
 
     async generateRepaymentSchedule(loanId) {
         try {
-            const loan = await Loan.findByPk(loanId);
+            const loan = await Loan.findById(loanId);
 
             if (!loan) {
                 throw new Error('Loan not found');
             }
 
-            const repayments = [];
-            const emi = parseFloat(loan.emiAmount);
+            const emi = parseFloat(loan.monthlyPrincipalPayment || 0);
             const principalAmount = parseFloat(loan.principalAmount);
             const tenure = parseInt(loan.loanTerm);
             const interestRate = parseFloat(loan.interestRate);
             const startDate = moment(loan.disbursementDate || moment());
 
+            const repayments = [];
             let remainingPrincipal = principalAmount;
             const monthlyInterestRate = interestRate / 12 / 100;
 
             for (let i = 1; i <= tenure; i++) {
                 const interestAmount = remainingPrincipal * monthlyInterestRate;
-                const principalAmount = emi - interestAmount;
+                const principalComponent = emi - interestAmount; // assuming emi is total payment
+
                 const dueDate = moment(startDate).add(i, 'months');
 
                 repayments.push({
                     repaymentNumber: i,
                     amount: emi,
-                    principalAmount: principalAmount,
+                    principalAmount: principalComponent,
                     interestAmount: interestAmount,
                     dueDate: dueDate.format('YYYY-MM-DD'),
                     status: moment().isAfter(dueDate) ? 'overdue' : 'pending'
                 });
 
-                remainingPrincipal -= principalAmount;
+                remainingPrincipal -= principalComponent;
             }
 
             return repayments;
@@ -289,13 +246,11 @@ class RepaymentService {
 
     async updateRepayment(id, updateData) {
         try {
-            const repayment = await Repayment.findByPk(id);
+            const repayment = await Repayment.findByIdAndUpdate(id, updateData, { new: true });
 
             if (!repayment) {
                 throw new Error('Repayment not found');
             }
-
-            await repayment.update(updateData);
 
             logger.info(`Repayment updated: ${id}`);
 

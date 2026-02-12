@@ -1,105 +1,73 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/db');
+const mongoose = require('mongoose');
 
-const Fine = sequelize.define('Fine', {
-    id: {
-        type: DataTypes.INTEGER,
-        primaryKey: true,
-        autoIncrement: true
-    },
+const fineSchema = new mongoose.Schema({
     memberId: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        references: {
-            model: 'Members',
-            key: 'id'
-        }
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Member',
+        required: true
     },
     loanId: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        references: {
-            model: 'Loans',
-            key: 'id'
-        }
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Loan'
     },
     fineNumber: {
-        type: DataTypes.STRING(20),
-        allowNull: false,
+        type: String,
+        required: true,
         unique: true
     },
     type: {
-        type: DataTypes.ENUM('late_payment', 'missed_meeting', 'violation', 'other'),
-        allowNull: false
+        type: String,
+        enum: ['late_payment', 'missed_meeting', 'violation', 'other'],
+        required: true
     },
     amount: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: false
+        type: Number,
+        required: true
     },
     description: {
-        type: DataTypes.TEXT,
-        allowNull: false
+        type: String,
+        required: true
     },
     date: {
-        type: DataTypes.DATEONLY,
-        allowNull: false,
-        defaultValue: DataTypes.NOW
+        type: Date,
+        default: Date.now
     },
     dueDate: {
-        type: DataTypes.DATEONLY,
-        allowNull: true
+        type: Date
     },
     status: {
-        type: DataTypes.ENUM('pending', 'paid', 'waived', 'disputed'),
-        allowNull: false,
-        defaultValue: 'pending'
+        type: String,
+        enum: ['pending', 'paid', 'waived', 'disputed'],
+        default: 'pending'
     },
     paymentDate: {
-        type: DataTypes.DATE,
-        allowNull: true
+        type: Date
     },
     paymentMethod: {
-        type: DataTypes.ENUM('cash', 'bank_transfer', 'check', 'online'),
-        allowNull: true
+        type: String,
+        enum: ['cash', 'bank_transfer', 'check', 'online']
     },
     waivedBy: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        references: {
-            model: 'Users',
-            key: 'id'
-        }
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
     },
     waiveReason: {
-        type: DataTypes.TEXT,
-        allowNull: true
+        type: String
     },
     remarks: {
-        type: DataTypes.TEXT,
-        allowNull: true
+        type: String
     }
 }, {
-    indexes: [
-        {
-            unique: true,
-            fields: ['fineNumber']
-        },
-        {
-            fields: ['memberId']
-        },
-        {
-            fields: ['loanId']
-        },
-        {
-            fields: ['status']
-        },
-        {
-            fields: ['type']
-        },
-        {
-            fields: ['date']
+    timestamps: true,
+    toJSON: {
+        virtuals: true,
+        transform: function (doc, ret) {
+            ret.id = ret._id;
+            delete ret._id;
+            delete ret.__v;
         }
-    ]
+    },
+    toObject: { virtuals: true }
 });
 
-module.exports = Fine;
+module.exports = mongoose.model('Fine', fineSchema);

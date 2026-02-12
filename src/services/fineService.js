@@ -1,34 +1,33 @@
-const { Fine, Member, Loan, User } = require('../models');
-const { sequelize } = require('../models');
+const { Fine, Member, Loan, User, Repayment } = require('../models');
+const mongoose = require('mongoose');
 const logger = require('../config/logger');
 const moment = require('moment');
 
 class FineService {
     async createFine(fineData) {
-        const transaction = await sequelize.transaction();
-
         try {
-            const lastFine = await Fine.findOne({
-                order: [['id', 'DESC']],
-                transaction
-            });
+            const lastFine = await Fine.findOne().sort({ createdAt: -1 });
 
-            const fineNumber = lastFine ? `FIN${String(lastFine.id + 1).padStart(4, '0')}` : 'FIN0001';
+            let nextFineNumber = 'FIN0001';
+            if (lastFine && lastFine.fineNumber) {
+                const numStr = lastFine.fineNumber.replace('FIN', '');
+                const num = parseInt(numStr, 10);
+                if (!isNaN(num)) {
+                    nextFineNumber = `FIN${String(num + 1).padStart(4, '0')}`;
+                }
+            }
 
             const fine = await Fine.create({
                 ...fineData,
-                fineNumber,
+                fineNumber: nextFineNumber,
                 date: new Date(),
                 dueDate: fineData.dueDate || moment().add(30, 'days').toDate()
-            }, { transaction });
-
-            await transaction.commit();
+            });
 
             logger.info(`New fine created: ${fine.fineNumber}`);
 
             return fine;
         } catch (error) {
-            await transaction.rollback();
             logger.error('Create fine error:', error);
             throw error;
         }
@@ -36,54 +35,38 @@ class FineService {
 
     async getAllFines(page = 1, limit = 10, filters = {}) {
         try {
-            const offset = (page - 1) * limit;
-            const where = {};
+            const skip = (page - 1) * limit;
+            const query = {};
 
             if (filters.status) {
-                where.status = filters.status;
+                query.status = filters.status;
             }
 
             if (filters.type) {
-                where.type = filters.type;
+                query.type = filters.type;
             }
 
             if (filters.memberId) {
-                where.memberId = filters.memberId;
+                query.memberId = filters.memberId;
             }
 
-            const { count, rows } = await Fine.findAndCountAll({
-                where,
-                include: [
-                    {
-                        model: Member,
-                        as: 'member',
-                        attributes: ['memberId', 'firstName', 'lastName', 'phone']
-                    },
-                    {
-                        model: Loan,
-                        as: 'loan',
-                        attributes: ['loanNumber', 'principalAmount'],
-                        required: false
-                    },
-                    {
-                        model: User,
-                        as: 'waiver',
-                        attributes: ['username'],
-                        required: false
-                    }
-                ],
-                limit,
-                offset,
-                order: [['createdAt', 'DESC']]
-            });
+            const fines = await Fine.find(query)
+                .populate({ path: 'memberId', select: 'memberId firstName lastName phone' })
+                .populate({ path: 'loanId', select: 'loanNumber principalAmount' })
+                .populate({ path: 'waivedBy', select: 'username' })
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit);
+
+            const total = await Fine.countDocuments(query);
 
             return {
-                fines: rows,
+                fines,
                 pagination: {
                     page,
                     limit,
-                    total: count,
-                    pages: Math.ceil(count / limit)
+                    total,
+                    pages: Math.ceil(total / limit)
                 }
             };
         } catch (error) {
@@ -94,24 +77,10 @@ class FineService {
 
     async getFineById(id) {
         try {
-            const fine = await Fine.findByPk(id, {
-                include: [
-                    {
-                        model: Member,
-                        as: 'member'
-                    },
-                    {
-                        model: Loan,
-                        as: 'loan',
-                        required: false
-                    },
-                    {
-                        model: User,
-                        as: 'waiver',
-                        required: false
-                    }
-                ]
-            });
+            const fine = await Fine.findById(id)
+                .populate('memberId')
+                .populate('loanId')
+                .populate('waivedBy');
 
             if (!fine) {
                 throw new Error('Fine not found');
@@ -125,10 +94,8 @@ class FineService {
     }
 
     async payFine(id, paymentMethod, transactionId) {
-        const transaction = await sequelize.transaction();
-
         try {
-            const fine = await Fine.findByPk(id, { transaction });
+            const fine = await Fine.findById(id);
 
             if (!fine) {
                 throw new Error('Fine not found');
@@ -142,30 +109,24 @@ class FineService {
                 throw new Error('Cannot pay waived fine');
             }
 
-            await fine.update({
-                status: 'paid',
-                paymentDate: new Date(),
-                paymentMethod,
-                transactionId
-            }, { transaction });
-
-            await transaction.commit();
+            fine.status = 'paid';
+            fine.paymentDate = new Date();
+            fine.paymentMethod = paymentMethod;
+            fine.transactionId = transactionId;
+            await fine.save();
 
             logger.info(`Fine paid: ${fine.fineNumber}`);
 
             return fine;
         } catch (error) {
-            await transaction.rollback();
             logger.error('Pay fine error:', error);
             throw error;
         }
     }
 
     async waiveFine(id, waiveReason, waivedBy) {
-        const transaction = await sequelize.transaction();
-
         try {
-            const fine = await Fine.findByPk(id, { transaction });
+            const fine = await Fine.findById(id);
 
             if (!fine) {
                 throw new Error('Fine not found');
@@ -179,19 +140,15 @@ class FineService {
                 throw new Error('Fine already waived');
             }
 
-            await fine.update({
-                status: 'waived',
-                waivedBy,
-                waiveReason
-            }, { transaction });
-
-            await transaction.commit();
+            fine.status = 'waived';
+            fine.waivedBy = waivedBy;
+            fine.waiveReason = waiveReason;
+            await fine.save();
 
             logger.info(`Fine waived: ${fine.fineNumber} by user ${waivedBy}`);
 
             return fine;
         } catch (error) {
-            await transaction.rollback();
             logger.error('Waive fine error:', error);
             throw error;
         }
@@ -199,42 +156,42 @@ class FineService {
 
     async calculateLatePaymentFines() {
         try {
-            const { Loan, Repayment } = require('../models');
+            const startOfDay = moment().startOf('day').toDate();
 
-            const overdueRepayments = await Repayment.findAll({
-                where: {
-                    status: 'pending',
-                    dueDate: {
-                        [sequelize.Sequelize.Op.lt]: moment().startOf('day').toDate()
-                    }
-                },
-                include: [
-                    {
-                        model: Loan,
-                        as: 'loan',
-                        where: { status: ['disbursed', 'active'] }
-                    }
-                ]
+            // Find overdue repayments
+            const overdueRepayments = await Repayment.find({
+                status: 'pending',
+                dueDate: { $lt: startOfDay }
+            }).populate({
+                path: 'loanId',
+                match: { status: { $in: ['disbursed', 'active'] } } // Only active loans
             });
 
             const finesCreated = [];
 
             for (const repayment of overdueRepayments) {
+                if (!repayment.loanId) continue; // Loan might not match filter or be null
+
                 const daysLate = moment().diff(moment(repayment.dueDate), 'days');
                 const fineAmount = Math.round(repayment.amount * 0.02 * Math.min(daysLate, 30));
 
                 const existingFine = await Fine.findOne({
-                    where: {
-                        loanId: repayment.loanId,
-                        type: 'late_payment',
-                        status: 'pending'
-                    }
+                    loanId: repayment.loanId._id,
+                    type: 'late_payment',
+                    status: 'pending',
+                    // Ideally we should link fine to specific repayment to avoid duplicates for same repayment
+                    // Assuming description or metadata could help, but for now replicate logic:
+                    // Only one pending late payment fine per loan? 
+                    // Or maybe we rely on the scheduled job frequency.
+                    // The original code check: 
+                    // where: { loanId, type: 'late_payment', status: 'pending' }
+                    // This implies if there is already a pending late fine, don't create another.
                 });
 
                 if (!existingFine && fineAmount > 0) {
                     const fine = await this.createFine({
                         memberId: repayment.memberId,
-                        loanId: repayment.loanId,
+                        loanId: repayment.loanId._id,
                         type: 'late_payment',
                         amount: fineAmount,
                         description: `Late payment fine for EMI #${repayment.repaymentNumber}. ${daysLate} days late.`
@@ -255,38 +212,46 @@ class FineService {
 
     async getFineStatistics() {
         try {
-            const totalFines = await Fine.count();
-            const pendingFines = await Fine.count({ where: { status: 'pending' } });
-            const paidFines = await Fine.count({ where: { status: 'paid' } });
-            const waivedFines = await Fine.count({ where: { status: 'waived' } });
+            const totalFines = await Fine.countDocuments();
+            const pendingFines = await Fine.countDocuments({ status: 'pending' });
+            const paidFines = await Fine.countDocuments({ status: 'paid' });
+            const waivedFines = await Fine.countDocuments({ status: 'waived' });
 
-            const totalAmount = await Fine.sum('amount');
-            const paidAmount = await Fine.sum('amount', {
-                where: { status: 'paid' }
-            });
-            const pendingAmount = await Fine.sum('amount', {
-                where: { status: 'pending' }
-            });
+            const aggregateSum = async (match, field) => {
+                const res = await Fine.aggregate([
+                    { $match: match },
+                    { $group: { _id: null, total: { $sum: `$${field}` } } }
+                ]);
+                return res.length ? res[0].total : 0;
+            };
 
-            const finesByType = await Fine.findAll({
-                attributes: [
-                    'type',
-                    [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-                    [sequelize.fn('SUM', sequelize.col('amount')), 'total']
-                ],
-                group: ['type'],
-                raw: true
-            });
+            const totalAmount = await aggregateSum({}, 'amount');
+            const paidAmount = await aggregateSum({ status: 'paid' }, 'amount');
+            const pendingAmount = await aggregateSum({ status: 'pending' }, 'amount');
+
+            const finesByType = await Fine.aggregate([
+                {
+                    $group: {
+                        _id: '$type',
+                        count: { $sum: 1 },
+                        total: { $sum: '$amount' }
+                    }
+                }
+            ]);
 
             return {
                 totalFines,
                 pendingFines,
                 paidFines,
                 waivedFines,
-                totalAmount: totalAmount || 0,
-                paidAmount: paidAmount || 0,
-                pendingAmount: pendingAmount || 0,
-                finesByType
+                totalAmount,
+                paidAmount,
+                pendingAmount,
+                finesByType: finesByType.map(f => ({
+                    type: f._id,
+                    count: f.count,
+                    total: f.total
+                }))
             };
         } catch (error) {
             logger.error('Get fine statistics error:', error);
@@ -296,13 +261,11 @@ class FineService {
 
     async updateFine(id, updateData) {
         try {
-            const fine = await Fine.findByPk(id);
+            const fine = await Fine.findByIdAndUpdate(id, updateData, { new: true });
 
             if (!fine) {
                 throw new Error('Fine not found');
             }
-
-            await fine.update(updateData);
 
             logger.info(`Fine updated: ${fine.fineNumber}`);
 

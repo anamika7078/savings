@@ -1,152 +1,126 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/db');
+const mongoose = require('mongoose');
 
-const Loan = sequelize.define('Loan', {
-    id: {
-        type: DataTypes.INTEGER,
-        primaryKey: true,
-        autoIncrement: true
-    },
+const loanSchema = new mongoose.Schema({
     memberId: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        references: {
-            model: 'Members',
-            key: 'id'
-        }
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Member',
+        required: true
     },
     loanNumber: {
-        type: DataTypes.STRING(20),
-        allowNull: false,
+        type: String,
+        required: true,
         unique: true
     },
     principalAmount: {
-        type: DataTypes.DECIMAL(12, 2),
-        allowNull: false
+        type: Number,
+        required: true
     },
     interestRate: {
-        type: DataTypes.DECIMAL(5, 2),
-        allowNull: false,
-        defaultValue: 10.00
+        type: Number,
+        required: true,
+        default: 10.00
     },
     loanTerm: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        comment: 'Loan term in months'
+        type: Number,
+        required: true // Loan term in months
     },
     monthlyPrincipalPayment: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: false,
-        comment: 'Fixed principal amount paid each month'
+        type: Number,
+        required: true
     },
     penaltyAmount: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: true,
-        defaultValue: 0.00,
-        comment: 'Monthly penalty amount applied to each payment'
+        type: Number,
+        default: 0.00
     },
     totalInterestAmount: {
-        type: DataTypes.DECIMAL(12, 2),
-        allowNull: false,
-        comment: 'Total interest payable over loan term'
+        type: Number,
+        required: true
     },
     totalAmount: {
-        type: DataTypes.DECIMAL(12, 2),
-        allowNull: false,
-        comment: 'Total amount payable (principal + interest)'
+        type: Number,
+        required: true
     },
     amountPaid: {
-        type: DataTypes.DECIMAL(12, 2),
-        allowNull: false,
-        defaultValue: 0.00
+        type: Number,
+        default: 0.00
     },
     principalPaid: {
-        type: DataTypes.DECIMAL(12, 2),
-        allowNull: false,
-        defaultValue: 0.00,
-        comment: 'Total principal amount paid so far'
+        type: Number,
+        default: 0.00
     },
     interestPaid: {
-        type: DataTypes.DECIMAL(12, 2),
-        allowNull: false,
-        defaultValue: 0.00,
-        comment: 'Total interest amount paid so far'
+        type: Number,
+        default: 0.00
     },
     remainingPrincipal: {
-        type: DataTypes.DECIMAL(12, 2),
-        allowNull: false,
-        comment: 'Remaining principal balance to be paid'
+        type: Number,
+        required: true
     },
     status: {
-        type: DataTypes.ENUM('pending', 'approved', 'disbursed', 'active', 'completed', 'defaulted'),
-        allowNull: false,
-        defaultValue: 'pending'
+        type: String,
+        enum: ['pending', 'approved', 'disbursed', 'active', 'completed', 'defaulted'],
+        default: 'pending'
     },
     applicationDate: {
-        type: DataTypes.DATEONLY,
-        allowNull: false,
-        defaultValue: DataTypes.NOW
+        type: Date,
+        default: Date.now
     },
     approvalDate: {
-        type: DataTypes.DATE,
-        allowNull: true
+        type: Date
     },
     disbursementDate: {
-        type: DataTypes.DATE,
-        allowNull: true
+        type: Date
     },
     dueDate: {
-        type: DataTypes.DATE,
-        allowNull: true
+        type: Date
     },
     maturityDate: {
-        type: DataTypes.DATE,
-        allowNull: true
+        type: Date
     },
     purpose: {
-        type: DataTypes.STRING(200),
-        allowNull: true
+        type: String
     },
     collateral: {
-        type: DataTypes.TEXT,
-        allowNull: true
+        type: String
     },
     guarantor: {
-        type: DataTypes.STRING(100),
-        allowNull: true
+        type: String
     },
     nextPaymentDate: {
-        type: DataTypes.DATE,
-        allowNull: true,
-        comment: 'Next payment due date'
+        type: Date
     },
     paymentCount: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        defaultValue: 0,
-        comment: 'Number of payments made so far'
+        type: Number,
+        default: 0
     },
     latePaymentCount: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        defaultValue: 0
+        type: Number,
+        default: 0
     }
 }, {
-    indexes: [
-        {
-            unique: true,
-            fields: ['loanNumber']
-        },
-        {
-            fields: ['memberId']
-        },
-        {
-            fields: ['status']
-        },
-        {
-            fields: ['applicationDate']
+    timestamps: true,
+    toJSON: {
+        virtuals: true,
+        transform: function (doc, ret) {
+            ret.id = ret._id;
+            delete ret._id;
+            delete ret.__v;
         }
-    ]
+    },
+    toObject: { virtuals: true }
 });
 
-module.exports = Loan;
+// Virtual for repayments
+loanSchema.virtual('repayments', {
+    ref: 'Repayment',
+    localField: '_id',
+    foreignField: 'loanId'
+});
+
+loanSchema.virtual('fines', {
+    ref: 'Fine',
+    localField: '_id',
+    foreignField: 'loanId'
+});
+
+module.exports = mongoose.model('Loan', loanSchema);

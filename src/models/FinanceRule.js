@@ -1,92 +1,70 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/db');
+const mongoose = require('mongoose');
 
-const FinanceRule = sequelize.define('FinanceRule', {
-    id: {
-        type: DataTypes.INTEGER,
-        primaryKey: true,
-        autoIncrement: true
-    },
+const financeRuleSchema = new mongoose.Schema({
     name: {
-        type: DataTypes.STRING(100),
-        allowNull: false,
-        unique: true
+        type: String,
+        required: true,
+        unique: true,
+        trim: true
     },
     category: {
-        type: DataTypes.ENUM('loan', 'savings', 'fine', 'general'),
-        allowNull: false
+        type: String,
+        enum: ['loan', 'savings', 'fine', 'general'],
+        required: true
     },
     type: {
-        type: DataTypes.ENUM('percentage', 'fixed', 'formula'),
-        allowNull: false
+        type: String,
+        enum: ['percentage', 'fixed', 'formula'],
+        required: true
     },
     value: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: false
+        type: Number,
+        required: true
     },
     description: {
-        type: DataTypes.TEXT,
-        allowNull: false
+        type: String,
+        required: true
     },
     isActive: {
-        type: DataTypes.BOOLEAN,
-        allowNull: false,
-        defaultValue: true
+        type: Boolean,
+        default: true
     },
     effectiveDate: {
-        type: DataTypes.DATEONLY,
-        allowNull: false,
-        defaultValue: DataTypes.NOW
+        type: Date,
+        default: Date.now
     },
     expiryDate: {
-        type: DataTypes.DATEONLY,
-        allowNull: true
+        type: Date
     },
     minAmount: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: true
+        type: Number
     },
     maxAmount: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: true
+        type: Number
     },
     conditions: {
-        type: DataTypes.TEXT,
-        allowNull: true,
-        comment: 'JSON string for complex conditions'
+        type: String // JSON string
     },
     createdBy: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        references: {
-            model: 'Users',
-            key: 'id'
-        }
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
     },
     updatedBy: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        references: {
-            model: 'Users',
-            key: 'id'
-        }
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
     }
 }, {
-    indexes: [
-        {
-            unique: true,
-            fields: ['name']
-        },
-        {
-            fields: ['category']
-        },
-        {
-            fields: ['isActive']
-        },
-        {
-            fields: ['effectiveDate']
+    timestamps: true,
+    toJSON: {
+        virtuals: true,
+        transform: function (doc, ret) {
+            ret.id = ret._id;
+            delete ret._id;
+            delete ret.__v;
         }
-    ]
+    },
+    toObject: { virtuals: true }
 });
 
-module.exports = FinanceRule;
+module.exports = mongoose.model('FinanceRule', financeRuleSchema);

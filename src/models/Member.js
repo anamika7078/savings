@@ -1,135 +1,122 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/db');
+const mongoose = require('mongoose');
 
-const Member = sequelize.define('Member', {
-    id: {
-        type: DataTypes.INTEGER,
-        primaryKey: true,
-        autoIncrement: true
-    },
+const memberSchema = new mongoose.Schema({
     memberId: {
-        type: DataTypes.STRING(20),
-        allowNull: false,
+        type: String,
+        required: true,
         unique: true,
-        validate: {
-            notEmpty: true
-        }
+        trim: true
     },
     firstName: {
-        type: DataTypes.STRING(50),
-        allowNull: false,
-        validate: {
-            len: [2, 50],
-            notEmpty: true
-        }
+        type: String,
+        required: true,
+        trim: true,
+        minlength: 2,
+        maxlength: 50
     },
     lastName: {
-        type: DataTypes.STRING(50),
-        allowNull: false,
-        validate: {
-            len: [2, 50],
-            notEmpty: true
-        }
+        type: String,
+        required: true,
+        trim: true,
+        minlength: 2,
+        maxlength: 50
     },
     email: {
-        type: DataTypes.STRING(100),
-        allowNull: true,
-        validate: {
-            isEmail: true
-        }
+        type: String,
+        trim: true,
+        match: [/.+\@.+\..+/, 'Please fill a valid email address']
     },
     phone: {
-        type: DataTypes.STRING(20),
-        allowNull: false,
-        validate: {
-            notEmpty: true
-        }
+        type: String,
+        required: true,
+        trim: true
     },
     address: {
-        type: DataTypes.TEXT,
-        allowNull: true
+        type: String
     },
     dateOfBirth: {
-        type: DataTypes.DATEONLY,
-        allowNull: false
+        type: Date,
+        required: true
     },
     joinDate: {
-        type: DataTypes.DATEONLY,
-        allowNull: false,
-        defaultValue: DataTypes.NOW
+        type: Date,
+        default: Date.now
     },
     status: {
-        type: DataTypes.ENUM('active', 'inactive', 'suspended'),
-        allowNull: false,
-        defaultValue: 'active'
+        type: String,
+        enum: ['active', 'inactive', 'suspended'],
+        default: 'active'
     },
     occupation: {
-        type: DataTypes.STRING(100),
-        allowNull: true
+        type: String
     },
     monthlyIncome: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: true
+        type: Number
     },
     idNumber: {
-        type: DataTypes.STRING(50),
-        allowNull: true
+        type: String
     },
     emergencyContact: {
-        type: DataTypes.STRING(100),
-        allowNull: true
+        type: String
     },
     emergencyPhone: {
-        type: DataTypes.STRING(20),
-        allowNull: true
+        type: String
     },
     memberName: {
-        type: DataTypes.STRING(100),
-        allowNull: true
+        type: String
     },
     monthlySavingAmount: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: true,
-        defaultValue: 0
+        type: Number,
+        default: 0
     },
     workingLoanFund: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: true,
-        defaultValue: 0
+        type: Number,
+        default: 0
     },
     workingSavingsFund: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: true,
-        defaultValue: 0
+        type: Number,
+        default: 0
     },
     penaltyAmount: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: true,
-        defaultValue: 0
+        type: Number,
+        default: 0
     },
     totalSavings: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: true,
-        defaultValue: 0
+        type: Number,
+        default: 0
     },
     outstandingLoanBalance: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: true,
-        defaultValue: 0
+        type: Number,
+        default: 0
+    },
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
     }
 }, {
-    indexes: [
-        {
-            unique: true,
-            fields: ['memberId']
-        },
-        {
-            fields: ['status']
-        },
-        {
-            fields: ['joinDate']
+    timestamps: true,
+    toJSON: {
+        virtuals: true,
+        transform: function (doc, ret) {
+            ret.id = ret._id;
+            delete ret._id;
+            delete ret.__v;
         }
-    ]
+    },
+    toObject: { virtuals: true }
 });
 
-module.exports = Member;
+// Virtuals for relationships (if needed) like loans, savings etc.
+memberSchema.virtual('savings', {
+    ref: 'Savings',
+    localField: '_id',
+    foreignField: 'memberId'
+});
+
+memberSchema.virtual('loans', {
+    ref: 'Loan',
+    localField: '_id',
+    foreignField: 'memberId'
+});
+
+module.exports = mongoose.model('Member', memberSchema);

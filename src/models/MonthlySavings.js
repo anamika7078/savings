@@ -1,81 +1,64 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/db');
+const mongoose = require('mongoose');
 
-const MonthlySavings = sequelize.define('MonthlySavings', {
-    id: {
-        type: DataTypes.INTEGER,
-        primaryKey: true,
-        autoIncrement: true
-    },
+const monthlySavingsSchema = new mongoose.Schema({
     memberId: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        references: {
-            model: 'Members',
-            key: 'id'
-        }
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Member',
+        required: true
     },
     savingMonth: {
-        type: DataTypes.STRING(2), // '01', '02', etc.
-        allowNull: false
+        type: String, // '01', '02', etc.
+        required: true
     },
     savingYear: {
-        type: DataTypes.STRING(4), // '2024', '2025', etc.
-        allowNull: false
+        type: String, // '2024', '2025', etc.
+        required: true
     },
     monthlyFixedAmount: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: false
+        type: Number,
+        required: true
     },
     fine: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: false,
-        defaultValue: 0.00
+        type: Number,
+        default: 0.00
     },
     carryForwardAmount: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: false,
-        defaultValue: 0.00
+        type: Number,
+        default: 0.00
     },
     totalPayableAmount: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: false
+        type: Number,
+        required: true
     },
     paymentStatus: {
-        type: DataTypes.ENUM('paid', 'unpaid'),
-        allowNull: false,
-        defaultValue: 'unpaid'
+        type: String,
+        enum: ['paid', 'unpaid'],
+        default: 'unpaid'
     },
     paymentDate: {
-        type: DataTypes.DATEONLY,
-        allowNull: true
+        type: Date
     },
     remarks: {
-        type: DataTypes.TEXT,
-        allowNull: true
+        type: String
     },
     entryDate: {
-        type: DataTypes.DATEONLY,
-        allowNull: false,
-        defaultValue: DataTypes.NOW
+        type: Date,
+        default: Date.now
     }
 }, {
-    indexes: [
-        {
-            unique: true,
-            fields: ['memberId', 'savingMonth', 'savingYear']
-        },
-        {
-            fields: ['memberId']
-        },
-        {
-            fields: ['paymentStatus']
-        },
-        {
-            fields: ['savingMonth', 'savingYear']
+    timestamps: true,
+    toJSON: {
+        virtuals: true,
+        transform: function (doc, ret) {
+            ret.id = ret._id;
+            delete ret._id;
+            delete ret.__v;
         }
-    ],
-    tableName: 'MonthlySavings'
+    },
+    toObject: { virtuals: true }
 });
 
-module.exports = MonthlySavings;
+// Ensure uniqueness of month+year per member
+monthlySavingsSchema.index({ memberId: 1, savingMonth: 1, savingYear: 1 }, { unique: true });
+
+module.exports = mongoose.model('MonthlySavings', monthlySavingsSchema);

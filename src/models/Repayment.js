@@ -1,99 +1,75 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/db');
+const mongoose = require('mongoose');
 
-const Repayment = sequelize.define('Repayment', {
-    id: {
-        type: DataTypes.INTEGER,
-        primaryKey: true,
-        autoIncrement: true
-    },
+const repaymentSchema = new mongoose.Schema({
     loanId: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        references: {
-            model: 'Loans',
-            key: 'id'
-        }
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Loan',
+        required: true
     },
     memberId: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        references: {
-            model: 'Members',
-            key: 'id'
-        }
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Member',
+        required: true
     },
     repaymentNumber: {
-        type: DataTypes.INTEGER,
-        allowNull: false
+        type: Number,
+        required: true
     },
     amount: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: false
+        type: Number,
+        required: true
     },
     principalAmount: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: false
+        type: Number,
+        required: true
     },
     interestAmount: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: false
+        type: Number,
+        required: true
     },
     penaltyAmount: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: false,
-        defaultValue: 0.00,
-        comment: 'Monthly penalty amount applied to this repayment'
+        type: Number,
+        required: true,
+        default: 0.00
     },
     paymentDate: {
-        type: DataTypes.DATEONLY,
-        allowNull: false,
-        defaultValue: DataTypes.NOW
+        type: Date,
+        default: Date.now
     },
     dueDate: {
-        type: DataTypes.DATEONLY,
-        allowNull: false
+        type: Date,
+        required: true
     },
     status: {
-        type: DataTypes.ENUM('pending', 'paid', 'partial', 'overdue'),
-        allowNull: false,
-        defaultValue: 'pending'
+        type: String,
+        enum: ['pending', 'paid', 'partial', 'overdue'],
+        default: 'pending'
     },
     paymentMethod: {
-        type: DataTypes.ENUM('cash', 'bank_transfer', 'check', 'online'),
-        allowNull: true
+        type: String,
+        enum: ['cash', 'bank_transfer', 'check', 'online']
     },
     transactionId: {
-        type: DataTypes.STRING(50),
-        allowNull: true
+        type: String
     },
     lateFee: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: false,
-        defaultValue: 0.00
+        type: Number,
+        default: 0.00
     },
     remarks: {
-        type: DataTypes.TEXT,
-        allowNull: true
+        type: String
     }
 }, {
-    indexes: [
-        {
-            fields: ['loanId']
-        },
-        {
-            fields: ['memberId']
-        },
-        {
-            fields: ['status']
-        },
-        {
-            fields: ['dueDate']
-        },
-        {
-            fields: ['paymentDate']
+    timestamps: true,
+    toJSON: {
+        virtuals: true,
+        transform: function (doc, ret) {
+            ret.id = ret._id;
+            delete ret._id;
+            delete ret.__v;
         }
-    ]
+    },
+    toObject: { virtuals: true }
 });
 
-module.exports = Repayment;
+module.exports = mongoose.model('Repayment', repaymentSchema);

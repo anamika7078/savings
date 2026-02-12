@@ -1,75 +1,61 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/db');
+const mongoose = require('mongoose');
 
-const Savings = sequelize.define('Savings', {
-    id: {
-        type: DataTypes.INTEGER,
-        primaryKey: true,
-        autoIncrement: true
-    },
+const savingsSchema = new mongoose.Schema({
     memberId: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        references: {
-            model: 'Members',
-            key: 'id'
-        }
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Member',
+        required: true
     },
     accountNumber: {
-        type: DataTypes.STRING(20),
-        allowNull: false,
+        type: String,
+        required: true,
         unique: true
     },
     balance: {
-        type: DataTypes.DECIMAL(12, 2),
-        allowNull: false,
-        defaultValue: 0.00
+        type: Number,
+        required: true,
+        default: 0.00
     },
     interestRate: {
-        type: DataTypes.DECIMAL(5, 2),
-        allowNull: false,
-        defaultValue: 5.00
+        type: Number,
+        required: true,
+        default: 5.00
     },
     lastInterestCalculated: {
-        type: DataTypes.DATE,
-        allowNull: true
+        type: Date
     },
     status: {
-        type: DataTypes.ENUM('active', 'inactive', 'frozen'),
-        allowNull: false,
-        defaultValue: 'active'
+        type: String,
+        enum: ['active', 'inactive', 'frozen'],
+        default: 'active'
     },
     minimumBalance: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: false,
-        defaultValue: 0.00
+        type: Number,
+        required: true,
+        default: 0.00
     },
     accountType: {
-        type: DataTypes.ENUM('regular', 'fixed', 'recurring'),
-        allowNull: false,
-        defaultValue: 'regular'
+        type: String,
+        enum: ['regular', 'fixed', 'recurring'],
+        default: 'regular'
     },
     maturityDate: {
-        type: DataTypes.DATE,
-        allowNull: true
+        type: Date
     },
     monthlyContribution: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: true
+        type: Number
     }
 }, {
-    indexes: [
-        {
-            unique: true,
-            fields: ['accountNumber']
-        },
-        {
-            fields: ['memberId']
-        },
-        {
-            fields: ['status']
+    timestamps: true,
+    toJSON: {
+        virtuals: true,
+        transform: function (doc, ret) {
+            ret.id = ret._id;
+            delete ret._id;
+            delete ret.__v;
         }
-    ]
+    },
+    toObject: { virtuals: true }
 });
 
-module.exports = Savings;
+module.exports = mongoose.model('Savings', savingsSchema);
