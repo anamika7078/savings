@@ -18,8 +18,8 @@ const validateTransaction = [
 
 const validateMonthlySavings = [
     body('memberId')
-        .isInt({ min: 1 })
-        .withMessage('Member ID must be a positive integer'),
+        .isMongoId()
+        .withMessage('Member ID must be a valid MongoDB ObjectId'),
     body('savingMonth')
         .matches(/^(0[1-9]|1[0-2])$/)
         .withMessage('Month must be between 01 and 12'),
