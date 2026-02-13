@@ -17,11 +17,17 @@ class FineService {
                 }
             }
 
+            // Handle empty loanId - remove it if it's an empty string
+            const processedFineData = { ...fineData };
+            if (!processedFineData.loanId || processedFineData.loanId === '') {
+                delete processedFineData.loanId;
+            }
+
             const fine = await Fine.create({
-                ...fineData,
+                ...processedFineData,
                 fineNumber: nextFineNumber,
                 date: new Date(),
-                dueDate: fineData.dueDate || moment().add(30, 'days').toDate()
+                dueDate: processedFineData.dueDate || moment().add(30, 'days').toDate()
             });
 
             logger.info(`New fine created: ${fine.fineNumber}`);

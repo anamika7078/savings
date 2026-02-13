@@ -48,20 +48,7 @@ class SavingsService {
 
             const savings = await Savings.find(query)
                 .populate({
-                    path: 'member', // Assumes 'memberId' in schema is mapped to 'member' virtual or populated manually if field name is memberId
-                    // In Savings model rewrite: memberId is ref: 'Member'. Path should be 'memberId' if we populated based on field name.
-                    // But usually frontend expects 'member' object.
-                    // Let's check Savings model rewrite: memberId: { type: ObjectId, ref: 'Member' }
-                    // So we populate path: 'memberId'.
-                    // However, standard Mongoose convention for 'include' vs 'populate'.
-                    // If we populate 'memberId', the result field will still be 'memberId' (containing the object).
-                    // The original code returned `savings.member`. 
-                    // I will populate 'memberId' but might need to rename or frontend handles it?
-                    // Original Sequelize used alias 'as: member'.
-                    // In Mongoose, if I populate 'memberId', the field 'memberId' becomes the object.
-                    // I should probably use .lean() or transform to map memberId -> member if strictly needed, 
-                    // OR rely on frontend checking both or just memberId.
-                    // Actually, let's stick to populating 'memberId'.
+                    path: 'memberId', // Fixed: Changed from 'member' to 'memberId' to match schema
                     select: 'memberId firstName lastName email phone'
                 })
                 .sort({ createdAt: -1 })

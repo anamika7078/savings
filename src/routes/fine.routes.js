@@ -6,8 +6,8 @@ const { body } = require('express-validator');
 
 const validateFine = [
     body('memberId')
-        .isInt({ min: 1 })
-        .withMessage('Member ID must be a positive integer'),
+        .isMongoId()
+        .withMessage('Member ID must be a valid MongoDB ObjectId'),
     body('type')
         .isIn(['late_payment', 'missed_meeting', 'violation', 'other'])
         .withMessage('Invalid fine type'),

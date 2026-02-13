@@ -125,7 +125,7 @@ class ReportService {
             const recentLoans = await Loan.find()
                 .sort({ createdAt: -1 })
                 .limit(5)
-                .populate({ path: 'member', select: 'memberId firstName lastName' })
+                .populate({ path: 'memberId', select: 'memberId firstName lastName' })
                 .select('loanNumber principalAmount status createdAt');
 
             const recentRepayments = await Repayment.find({ status: 'paid' })
@@ -134,7 +134,7 @@ class ReportService {
                 .populate({
                     path: 'loanId',
                     select: 'loanNumber',
-                    populate: { path: 'member', select: 'memberId firstName lastName' }
+                    populate: { path: 'memberId', select: 'memberId firstName lastName' }
                 })
                 .select('repaymentNumber amount paymentDate paymentMethod');
 
@@ -164,9 +164,8 @@ class ReportService {
                 }
             })
                 .sort({ applicationDate: -1 })
-                .populate({ path: 'member', select: 'memberId firstName lastName' })
+                .populate({ path: 'memberId', select: 'memberId firstName lastName' })
                 .populate('repayments');
-
 
             const performanceData = loans.map(loan => {
                 // repayments are populated. In Mongoose, this is an array of objects.

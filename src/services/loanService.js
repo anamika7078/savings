@@ -65,9 +65,9 @@ class LoanService {
                 }
             }
 
-            const loanTerm = this.calculateLoanTerm(loanData.principalAmount, loanData.monthlyPrincipalPayment);
-            const totalInterestAmount = this.calculateTotalInterest(loanData.principalAmount, loanData.interestRate, loanData.monthlyPrincipalPayment, loanData.penaltyAmount);
-            const totalAmount = this.calculateTotalAmount(loanData.principalAmount, loanData.interestRate, loanData.monthlyPrincipalPayment, loanData.penaltyAmount);
+            const loanTerm = this.calculateLoanTerm(parseFloat(loanData.principalAmount), parseFloat(loanData.monthlyPrincipalPayment));
+            const totalInterestAmount = this.calculateTotalInterest(parseFloat(loanData.principalAmount), parseFloat(loanData.interestRate), parseFloat(loanData.monthlyPrincipalPayment), parseFloat(loanData.penaltyAmount));
+            const totalAmount = this.calculateTotalAmount(parseFloat(loanData.principalAmount), parseFloat(loanData.interestRate), parseFloat(loanData.monthlyPrincipalPayment), parseFloat(loanData.penaltyAmount));
 
             const loan = await Loan.create({
                 ...loanData,
@@ -75,7 +75,7 @@ class LoanService {
                 loanTerm,
                 totalInterestAmount,
                 totalAmount,
-                remainingPrincipal: loanData.principalAmount,
+                remainingPrincipal: parseFloat(loanData.principalAmount),
                 applicationDate: new Date()
             });
 
@@ -129,7 +129,7 @@ class LoanService {
             }
 
             const loans = await Loan.find(query)
-                .populate({ path: 'member', select: 'memberId firstName lastName phone' })
+                .populate({ path: 'memberId', select: 'memberId firstName lastName phone' })
                 .populate({ path: 'repayments', select: 'repaymentNumber amount dueDate status paymentDate' })
                 .sort({ createdAt: -1 })
                 .skip(skip)
@@ -155,7 +155,7 @@ class LoanService {
     async getLoanById(id) {
         try {
             const loan = await Loan.findById(id)
-                .populate('member')
+                .populate('memberId')
                 .populate('repayments')
                 // .populate('fines') // Assuming virtual or we fetch separately
                 ;

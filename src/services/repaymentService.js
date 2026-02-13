@@ -31,7 +31,7 @@ class RepaymentService {
             const repayments = await Repayment.find(query)
                 .populate({
                     path: 'loanId',
-                    populate: { path: 'member', select: 'memberId firstName lastName' }
+                    populate: { path: 'memberId', select: 'memberId firstName lastName' }
                 })
                 .populate({ path: 'memberId', select: 'memberId firstName lastName' })
                 .sort({ dueDate: -1 })
@@ -40,8 +40,17 @@ class RepaymentService {
 
             const total = await Repayment.countDocuments(query);
 
+            // Transform data for frontend compatibility
+            const transformedRepayments = repayments.map(repayment => ({
+                ...repayment.toObject(),
+                member: repayment.memberId, // Map memberId to member for frontend
+                loan: repayment.loanId,     // Map loanId to loan for frontend
+                memberId: repayment.memberId?._id, // Keep original ID reference
+                loanId: repayment.loanId?._id     // Keep original ID reference
+            }));
+
             return {
-                repayments,
+                repayments: transformedRepayments,
                 pagination: {
                     page,
                     limit,
@@ -60,7 +69,7 @@ class RepaymentService {
             const repayment = await Repayment.findById(id)
                 .populate({
                     path: 'loanId',
-                    populate: { path: 'member', select: 'memberId firstName lastName' }
+                    populate: { path: 'memberId', select: 'memberId firstName lastName' }
                 })
                 .populate({ path: 'memberId', select: 'memberId firstName lastName' });
 
@@ -68,7 +77,16 @@ class RepaymentService {
                 throw new Error('Repayment not found');
             }
 
-            return repayment;
+            // Transform data for frontend compatibility
+            const transformedRepayment = {
+                ...repayment.toObject(),
+                member: repayment.memberId, // Map memberId to member for frontend
+                loan: repayment.loanId,     // Map loanId to loan for frontend
+                memberId: repayment.memberId?._id, // Keep original ID reference
+                loanId: repayment.loanId?._id     // Keep original ID reference
+            };
+
+            return transformedRepayment;
         } catch (error) {
             logger.error('Get repayment by ID error:', error);
             throw error;
@@ -132,12 +150,21 @@ class RepaymentService {
             })
                 .populate({
                     path: 'loanId',
-                    populate: { path: 'member', select: 'memberId firstName lastName' }
+                    populate: { path: 'memberId', select: 'memberId firstName lastName' }
                 })
                 .populate({ path: 'memberId', select: 'memberId firstName lastName' })
                 .sort({ dueDate: 1 });
 
-            return overdueRepayments;
+            // Transform data for frontend compatibility
+            const transformedOverdueRepayments = overdueRepayments.map(repayment => ({
+                ...repayment.toObject(),
+                member: repayment.memberId, // Map memberId to member for frontend
+                loan: repayment.loanId,     // Map loanId to loan for frontend
+                memberId: repayment.memberId?._id, // Keep original ID reference
+                loanId: repayment.loanId?._id     // Keep original ID reference
+            }));
+
+            return transformedOverdueRepayments;
         } catch (error) {
             logger.error('Get overdue repayments error:', error);
             throw error;

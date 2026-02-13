@@ -167,11 +167,9 @@ class SavingsController {
 
             // Check for duplicate entry
             const existingEntry = await MonthlySavings.findOne({
-                where: {
-                    memberId,
-                    savingMonth,
-                    savingYear
-                }
+                memberId,
+                savingMonth,
+                savingYear
             });
 
             if (existingEntry) {
@@ -213,11 +211,9 @@ class SavingsController {
             const { memberId, savingMonth, savingYear } = req.body;
 
             const existingEntry = await MonthlySavings.findOne({
-                where: {
-                    memberId,
-                    savingMonth,
-                    savingYear
-                }
+                memberId,
+                savingMonth,
+                savingYear
             });
 
             res.json({
@@ -239,11 +235,9 @@ class SavingsController {
             const { memberId, month, year } = req.params;
 
             const monthlySavings = await MonthlySavings.findOne({
-                where: {
-                    memberId,
-                    savingMonth: month,
-                    savingYear: year
-                }
+                memberId,
+                savingMonth: month,
+                savingYear: year
             });
 
             res.json({
@@ -261,6 +255,9 @@ class SavingsController {
 
     async getAllMonthlySavings(req, res) {
         try {
+            console.log('MonthlySavings model:', MonthlySavings);
+            console.log('MonthlySavings.find:', typeof MonthlySavings.find);
+
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 10;
             const offset = (page - 1) * limit;
@@ -279,12 +276,15 @@ class SavingsController {
                 }
             });
 
-            const { count, rows: monthlySavings } = await MonthlySavings.findAndCountAll({
-                where: whereClause,
-                limit,
-                offset,
-                order: [['savingYear', 'DESC'], ['savingMonth', 'DESC'], ['createdAt', 'DESC']]
-            });
+            console.log('Where clause:', whereClause);
+
+            const monthlySavings = await MonthlySavings.find(whereClause)
+                .populate('memberId', 'firstName lastName memberId')
+                .limit(limit)
+                .skip(offset)
+                .sort({ savingYear: -1, savingMonth: -1, createdAt: -1 });
+
+            const count = await MonthlySavings.countDocuments(whereClause);
 
             res.json({
                 success: true,
@@ -299,6 +299,7 @@ class SavingsController {
                 }
             });
         } catch (error) {
+            console.error('Get all monthly savings controller error:', error);
             logger.error('Get all monthly savings controller error:', error);
             res.status(500).json({
                 success: false,

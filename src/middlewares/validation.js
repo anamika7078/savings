@@ -87,14 +87,14 @@ const validateMember = [
 
 const validateLoan = [
     body('memberId')
-        .isInt({ min: 1 })
-        .withMessage('Member ID must be a positive integer'),
+        .isMongoId()
+        .withMessage('Member ID must be a valid MongoDB ObjectId'),
     body('principalAmount')
         .isFloat({ min: 100 })
         .withMessage('Principal amount must be at least 100'),
-    body('loanTerm')
-        .isInt({ min: 1, max: 360 })
-        .withMessage('Loan term must be between 1 and 360 months'),
+    body('monthlyPrincipalPayment')
+        .isFloat({ min: 1 })
+        .withMessage('Monthly principal payment must be greater than 0'),
     body('interestRate')
         .optional()
         .isFloat({ min: 0, max: 100 })
@@ -103,13 +103,21 @@ const validateLoan = [
         .optional()
         .isLength({ max: 200 })
         .withMessage('Purpose must not exceed 200 characters'),
+    body('collateral')
+        .optional()
+        .isLength({ max: 200 })
+        .withMessage('Collateral must not exceed 200 characters'),
+    body('guarantor')
+        .optional()
+        .isLength({ max: 200 })
+        .withMessage('Guarantor must not exceed 200 characters'),
     handleValidationErrors
 ];
 
 const validateSavings = [
     body('memberId')
-        .isInt({ min: 1 })
-        .withMessage('Member ID must be a positive integer'),
+        .isMongoId()
+        .withMessage('Member ID must be a valid MongoDB ObjectId'),
     body('accountType')
         .isIn(['regular', 'fixed', 'recurring'])
         .withMessage('Account type must be regular, fixed, or recurring'),
