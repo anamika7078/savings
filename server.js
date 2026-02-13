@@ -33,6 +33,8 @@ const corsOptions = {
             'https://savingclient.vercel.app',
             'https://savingnew-five.vercel.app',
             'https://savingfrontendnew.vercel.app',
+            'https://savings-1-liz5.onrender.com',
+            'https://savings-2-ckrp.onrender.com',
             'http://localhost:3000',
             'http://localhost:3001'
         ];
