@@ -171,25 +171,33 @@ class MemberService {
         }
     }
 
+    async updateAllMembersStatus(status) {
+        try {
+            const result = await Member.updateMany(
+                {}, // Update all documents
+                { status: status }
+            );
+
+            logger.info(`Updated ${result.modifiedCount} members to ${status} status`);
+            return result;
+        } catch (error) {
+            logger.error('Update all members status error:', error);
+            throw error;
+        }
+    }
+
     async getMemberStatistics() {
         try {
-            const totalMembers = await Member.countDocuments();
-            const activeMembers = await Member.countDocuments({ status: 'active' });
-            const inactiveMembers = await Member.countDocuments({ status: 'inactive' });
-            const suspendedMembers = await Member.countDocuments({ status: 'suspended' });
-
-            const startOfMonth = moment().startOf('month').toDate();
-            const newMembersThisMonth = await Member.countDocuments({
-                joinDate: { $gte: startOfMonth }
+            const total = await Member.countDocuments();
+            const active = await Member.countDocuments({ status: 'active' });
+            const inactive = await Member.countDocuments({ status: 'inactive' });
+            const newThisMonth = await Member.countDocuments({
+                joinDate: {
+                    $gte: moment().startOf('month').toDate()
+                }
             });
 
-            return {
-                totalMembers,
-                activeMembers,
-                inactiveMembers,
-                suspendedMembers,
-                newMembersThisMonth
-            };
+            return { total, active, inactive, newThisMonth };
         } catch (error) {
             logger.error('Get member statistics error:', error);
             throw error;

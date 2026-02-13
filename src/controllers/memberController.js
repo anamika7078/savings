@@ -115,6 +115,29 @@ class MemberController {
             });
         }
     }
+
+    async updateMemberStatus(req, res) {
+        try {
+            const { status } = req.body;
+
+            // Update all members with the specified status
+            const result = await memberService.updateAllMembersStatus(status);
+
+            res.json({
+                success: true,
+                message: `Updated ${result.modifiedCount} members to ${status} status`,
+                data: {
+                    modifiedCount: result.modifiedCount
+                }
+            });
+        } catch (error) {
+            logger.error('Update member status controller error:', error);
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    }
 }
 
 module.exports = new MemberController();

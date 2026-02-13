@@ -199,6 +199,15 @@ class SavingsController {
             });
         } catch (error) {
             logger.error('Create monthly savings entry controller error:', error);
+
+            // Handle MongoDB duplicate key error
+            if (error.code === 11000) { // MongoDB duplicate key error code
+                return res.status(400).json({
+                    success: false,
+                    message: 'Savings entry for this member, month, and year already exists'
+                });
+            }
+
             res.status(400).json({
                 success: false,
                 message: error.message
