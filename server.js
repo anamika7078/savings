@@ -9,6 +9,9 @@ const logger = require('./src/config/logger');
 
 const app = express();
 
+// Trust proxy headers for reverse proxy deployments (Render, Heroku, etc.)
+app.set('trust proxy', true);
+
 // Connect to Database
 connectDB();
 
