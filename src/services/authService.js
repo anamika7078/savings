@@ -32,13 +32,10 @@ class AuthService {
             user.lastLogin = new Date();
             await user.save();
 
-            const token = this.generateToken(user);
-
             logger.info(`User logged in: ${user.username}`);
 
             return {
-                user: user.toJSON(),
-                token
+                user: user.toJSON()
             };
         } catch (error) {
             logger.error('Login error:', error);
@@ -66,13 +63,10 @@ class AuthService {
                 role: userData.role || 'user'
             });
 
-            const token = this.generateToken(user);
-
             logger.info(`New user registered: ${user.username}`);
 
             return {
-                user: user.toJSON(),
-                token
+                user: user.toJSON()
             };
         } catch (error) {
             logger.error('Registration error:', error);

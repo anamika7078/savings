@@ -4,48 +4,15 @@ const logger = require('../config/logger');
 
 const auth = async (req, res, next) => {
     try {
-        // Check multiple ways the token might be sent
-        let token = req.header('Authorization')?.replace('Bearer ', '');
-        
-        // Also check query parameter (for testing, not recommended for production)
-        if (!token && req.query.token) {
-            token = req.query.token;
-        }
-
-        // Log for debugging (remove in production or use logger)
-        if (!token) {
-            logger.warn('Auth failed - No token provided', {
-                url: req.url,
-                method: req.method,
-                headers: {
-                    authorization: req.header('Authorization') ? 'Present' : 'Missing',
-                    origin: req.header('Origin'),
-                    referer: req.header('Referer')
-                }
-            });
-            return res.status(401).json({
-                success: false,
-                message: 'Access denied. No token provided.'
-            });
-        }
-
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await User.findById(decoded.id);
-
-        if (!user || !user.isActive) {
-            return res.status(401).json({
-                success: false,
-                message: 'Invalid token or user not found.'
-            });
-        }
-
-        req.user = user;
+        // Token authentication removed - allow all requests
+        // You can add session-based auth or other authentication here if needed
+        req.user = { role: 'user' }; // Default user for now
         next();
     } catch (error) {
         logger.error('Auth middleware error:', error);
         res.status(401).json({
             success: false,
-            message: 'Invalid token.'
+            message: 'Authentication error.'
         });
     }
 };
