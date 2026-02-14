@@ -10,7 +10,8 @@ const logger = require('./src/config/logger');
 const app = express();
 
 // Trust proxy headers for reverse proxy deployments (Render, Heroku, etc.)
-app.set('trust proxy', true);
+// Set to 1 to trust only the first proxy (Render's load balancer)
+app.set('trust proxy', 1);
 
 // Connect to Database
 connectDB();
@@ -20,7 +21,19 @@ connectDB();
 const limiter = rateLimit({
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
     max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
-    message: 'Too many requests from this IP, please try again later.'
+    message: 'Too many requests from this IP, please try again later.',
+    // Use a custom key generator that respects trust proxy setting
+    keyGenerator: (req) => {
+        // Get the real IP from the X-Forwarded-For header if behind proxy
+        const forwarded = req.headers['x-forwarded-for'];
+        if (forwarded) {
+            return forwarded.split(',')[0].trim();
+        }
+        return req.ip || req.connection.remoteAddress;
+    },
+    // Don't set trustProxy here - it will use the app's trust proxy setting (which is 1)
+    standardHeaders: true,
+    legacyHeaders: false
 });
 
 // Configure helmet to allow CORS
