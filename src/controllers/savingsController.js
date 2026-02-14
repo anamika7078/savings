@@ -298,11 +298,13 @@ class SavingsController {
             const count = await MonthlySavings.countDocuments(whereClause);
 
             console.log(`Found ${monthlySavings.length} monthly savings records out of ${count} total`);
+            console.log('Sample record:', monthlySavings[0] ? JSON.stringify(monthlySavings[0], null, 2) : 'No records');
 
-            res.json({
+            // Ensure we return the data in the expected format
+            const responseData = {
                 success: true,
                 data: {
-                    monthlySavings,
+                    monthlySavings: monthlySavings || [],
                     pagination: {
                         page,
                         limit,
@@ -310,7 +312,10 @@ class SavingsController {
                         totalPages: Math.ceil(count / limit)
                     }
                 }
-            });
+            };
+            
+            console.log('Sending response with', responseData.data.monthlySavings.length, 'monthly savings');
+            res.json(responseData);
         } catch (error) {
             console.error('Get all monthly savings controller error:', error);
             logger.error('Get all monthly savings controller error:', error);
