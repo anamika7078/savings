@@ -268,7 +268,8 @@ class SavingsController {
             console.log('MonthlySavings.find:', typeof MonthlySavings.find);
 
             const page = parseInt(req.query.page) || 1;
-            const limit = parseInt(req.query.limit) || 10;
+            // Increase default limit to 1000 to get all records, or use limit from query
+            const limit = parseInt(req.query.limit) || 1000;
             const offset = (page - 1) * limit;
 
             const filters = {
@@ -286,6 +287,7 @@ class SavingsController {
             });
 
             console.log('Where clause:', whereClause);
+            console.log('Query params:', req.query);
 
             const monthlySavings = await MonthlySavings.find(whereClause)
                 .populate('memberId', 'firstName lastName memberId')
@@ -294,6 +296,8 @@ class SavingsController {
                 .sort({ savingYear: -1, savingMonth: -1, createdAt: -1 });
 
             const count = await MonthlySavings.countDocuments(whereClause);
+
+            console.log(`Found ${monthlySavings.length} monthly savings records out of ${count} total`);
 
             res.json({
                 success: true,
