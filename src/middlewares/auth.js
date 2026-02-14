@@ -4,9 +4,25 @@ const logger = require('../config/logger');
 
 const auth = async (req, res, next) => {
     try {
-        const token = req.header('Authorization')?.replace('Bearer ', '');
+        // Check multiple ways the token might be sent
+        let token = req.header('Authorization')?.replace('Bearer ', '');
+        
+        // Also check query parameter (for testing, not recommended for production)
+        if (!token && req.query.token) {
+            token = req.query.token;
+        }
 
+        // Log for debugging (remove in production or use logger)
         if (!token) {
+            logger.warn('Auth failed - No token provided', {
+                url: req.url,
+                method: req.method,
+                headers: {
+                    authorization: req.header('Authorization') ? 'Present' : 'Missing',
+                    origin: req.header('Origin'),
+                    referer: req.header('Referer')
+                }
+            });
             return res.status(401).json({
                 success: false,
                 message: 'Access denied. No token provided.'
