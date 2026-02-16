@@ -1,4 +1,4 @@
-const { Member, Loan, Savings, Repayment, Fine, User } = require('../models');
+const { Member, Loan, Savings, MonthlySavings, Repayment, Fine, User } = require('../models');
 const mongoose = require('mongoose');
 const logger = require('../config/logger');
 const moment = require('moment');
@@ -76,20 +76,34 @@ class ReportService {
 
     async getSavingsStatistics() {
         try {
-            const total = await Savings.countDocuments();
-            const active = await Savings.countDocuments({ status: 'active' });
+            // Use MonthlySavings instead of Savings model
+            const total = await MonthlySavings.countDocuments();
+            const paid = await MonthlySavings.countDocuments({ paymentStatus: 'paid' });
+            const unpaid = await MonthlySavings.countDocuments({ paymentStatus: 'unpaid' });
 
+            // Calculate total balance from all monthly savings entries
             const aggregateSum = async (match, field) => {
-                const res = await Savings.aggregate([
+                const res = await MonthlySavings.aggregate([
                     { $match: match },
                     { $group: { _id: null, total: { $sum: `$${field}` } } }
                 ]);
                 return res.length ? res[0].total : 0;
             };
 
-            const totalBalance = await aggregateSum({ status: 'active' }, 'balance');
+            // Sum totalPayableAmount for all entries (total savings)
+            const totalBalance = await aggregateSum({}, 'totalPayableAmount');
+            
+            // Sum totalPayableAmount for paid entries only
+            const paidAmount = await aggregateSum({ paymentStatus: 'paid' }, 'totalPayableAmount');
 
-            return { total, active, totalBalance };
+            return { 
+                total, 
+                active: total, // All monthly savings entries are considered active
+                totalBalance,
+                paid,
+                unpaid,
+                paidAmount
+            };
         } catch (error) {
             logger.error('Get savings statistics error:', error);
             throw error;
